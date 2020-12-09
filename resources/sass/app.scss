@@ -1,0 +1,32 @@
+// Fonts
+@import url('https://fonts.googleapis.com/css?family=Nunito');
+
+// Variables
+@import 'variables';
+
+// Bootstrap
+@import '~bootstrap/scss/bootstrap';
+
+.headerP {
+    margin-bottom:80px;
+}
+
+.nav-item {
+    position: relative;
+}
+
+.footer {
+    bottom:0;
+    height: 0;
+    position: absolute ;
+    text-align: center;
+    align-items: center;
+}
+
+.footerP{
+    justify-content: center;
+    text-align: center;
+    align-items: center;
+    margin-left: 500px;
+    font-size: 11px;
+}

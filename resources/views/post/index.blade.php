@@ -1,10 +1,10 @@
 @extends('base_layout')
-@section('title', 'Listagem de usuários')
+@section('title', 'Listagem de posts')
 
 @section('content')
     <div class="d-flex justify-content-between mb-5">
-        <h2>Listagem de usuários</h2>
-        <a href="{{ route('users.create') }}" class="btn btn-success">Adicionar usuário</a>
+        <h2>Listagem de posts</h2>
+        <a href="{{ route('posts.create') }}" class="btn btn-success">Adicionar post</a>
     </div>
 
     @if($errors->any())
@@ -23,22 +23,24 @@
 
     <table class="table table-bordered table-hover">
         <tr class="thead-dark">
-            <th>CPF</th>
-            <th>Nome</th>
-            <th>Email</th>
-            <th>Telefone</th>
+            <th>Id</th>
+            <th>Título</th>
+            <th>Corpo</th>
+            <th>Usuário</th>
+            <th>Data de publicação</th>
             <th>Ações</th>
         </tr>
-    @foreach($users as $user)
+    @foreach($posts as $post)
         <tr>
-            <td>{{ $user->cpf }}</td>
-            <td>{{ $user->nome }}</td>
-            <td>{{ $user->email }}</td>
-            <td>{{ $user->telefone }}</td>
+            <td>{{ $post->id }}</td>
+            <td>{{ $post->titulo }}</td>
+            <td>{{ $post->corpo }}</td>
+            <td>{{ $post->usuario->nome }}</td>
+            <td>{{ $post->data_publicacao->format('d/m/Y H:i:s') }}</td>
             <td class="d-flex">
-                <a href="{{ route('users.edit', ['user' => $user->cpf]) }}" class="btn btn-primary btn-sm mr-2">Editar</a>
+                <a href="{{ route('posts.edit', ['post' => $post->id]) }}" class="btn btn-primary btn-sm mr-2">Editar</a>
 
-                <form action="{{ route('users.destroy', ['user' => $user->cpf]) }}" onsubmit="return confirm('Tem certeza que deseja excluir?')" method="POST">
+                <form action="{{ route('posts.destroy', ['post' => $post->id]) }}" onsubmit="return confirm('Tem certeza que deseja excluir?')" method="POST">
                     @csrf
                     @method('DELETE')
                     <button class="btn btn-danger btn-sm">Excluir</button>

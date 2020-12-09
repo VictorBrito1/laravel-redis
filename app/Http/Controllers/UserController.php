@@ -4,36 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Redirect;
-use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Facades\Validator;
 
 class UserController extends Controller
 {
-    private $redis;
-
-    /**
-     * UserController constructor.
-     */
-    public function __construct()
-    {
-        $this->redis = Redis::connection();
-    }
-
     /**
      * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
      */
     public function index()
     {
-        $keys = $this->redis->keys('user:*');
-        $users = [];
-
-        foreach ($keys as $key) {
-            $cpf = explode(':', $key)[1];
-            $stored = $this->redis->hgetall($key);
-            $user = new User($cpf, $stored['name'], $stored['email'], $stored['phone']);
-            $users[] = $user;
-        }
-
+        $users = User::all();
         return view('user.index', ['users' => $users]);
     }
 
@@ -51,20 +31,29 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
-        $data = $request->only(['cpf', 'name', 'email', 'phone']);
-        $user = $this->redis->hgetall("user:{$data['cpf']}");
+        $data = $request->only(['cpf', 'nome', 'email', 'telefone']);
 
-        if ($user) {
-            return Redirect::back()->withErrors(['CPF já cadastrado!']);
-        }
-
-        Redis::hmset('user:' . $data['cpf'], [
-            'name'    => $data['name'],
-            'email'   => $data['email'],
-            'phone' => $data['phone'],
+        $validator = Validator::make($data, [
+            'nome' => ['required', 'string', 'max:255'],
+            'cpf' => ['required', 'string', 'max:14', 'unique:usuarios'],
+            'telefone' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'max:255', 'email'],
         ]);
 
-        return redirect()->route('user.index');
+        if ($validator->fails()) {
+            return redirect()->route('users.create')
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        $user = new User();
+        $user->cpf = $data['cpf'];
+        $user->nome = $data['nome'];
+        $user->telefone = $data['telefone'];
+        $user->email = $data['email'];
+        $user->save();
+
+        return redirect()->route('users.index');
     }
 
     /**
@@ -73,58 +62,70 @@ class UserController extends Controller
      */
     public function edit($cpf)
     {
-        $stored = $this->redis->hgetall("user:{$cpf}");
+        $user = User::find($cpf);
 
-        if (!$stored) {
-            return redirect()->route('user.index')->withErrors(['Usuário não encontrado.']);
+        if ($user) {
+            return view('user.edit', ['user' => $user]);
         }
 
-        $user = new User($cpf, $stored['name'], $stored['email'], $stored['phone']);
-
-        return view('user.edit', ['user' => $user]);
+        return redirect()->route('users.index');
     }
 
     /**
      * @param Request $request
+     * @param $cpf
      * @return \Illuminate\Http\RedirectResponse
      */
-    public function update(Request $request)
+    public function update(Request $request, $cpf)
     {
-        $data = $request->only(['cpf', 'name', 'email', 'phone']);
+        $user = User::find($cpf);
 
-        Redis::hmset('user:' . $data['cpf'], [
-            'name'    => $data['name'],
-            'email'   => $data['email'],
-            'phone' => $data['phone'],
-        ]);
+        if ($user) {
+            $data = $request->only(['cpf', 'nome', 'email', 'telefone']);
 
-        return redirect()->route('user.index');
-    }
+            $validator = Validator::make($data, [
+                'nome' => ['required', 'string', 'max:255'],
+                'cpf' => ['required', 'string', 'max:14'],
+                'telefone' => ['required', 'string', 'max:255'],
+                'email' => ['required', 'string', 'max:255', 'email'],
+            ]);
 
-    public function find($id)
-    {
-//        $key = "user:{$id}";
-//        $stored = Redis::hgetall($key);
-//
-//        if (!empty($stored)) {
-//            return new User($stored['id'], $stored['name'], $stored['email'], $stored['phone']);
-//        }
-//
-//        return false;
+            if ($validator->fails()) {
+                return redirect()->route('users.edit', ['user' => $cpf])->withInput()->withErrors($validator);
+            }
+
+            if ($user->cpf !== $data['cpf']) {
+                $validatorCpf = Validator::make(['cpf' => $data['cpf']], ['cpf' => ['unique:usuarios']]);
+
+                if ($validatorCpf->fails()) {
+                    $validator->errors()->add('cpf', __('validation.unique', ['attribute' => 'cpf']));
+                }
+
+                $user->cpf = $data['cpf'];
+            }
+
+            $user->nome = $data['nome'];
+            $user->telefone = $data['telefone'];
+            $user->email = $data['email'];
+            $user->save();
+        }
+
+        return redirect()->route('users.index');
     }
 
     /**
      * @param $cpf
      * @return \Illuminate\Http\RedirectResponse
+     * @throws \Exception
      */
-    public function delete($cpf)
+    public function destroy($cpf)
     {
-        $user = $this->redis->hgetall("user:{$cpf}");
+        $user = User::find($cpf);
 
         if ($user) {
-            $this->redis->del("user:{$cpf}");
+            $user->delete();
         }
 
-        return redirect()->route('user.index');
+        return redirect()->route('users.index');
     }
 }

@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
-class User
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+
+/**
+ * @mixin Builder
+ */
+class User extends Model
 {
-    public function __construct($cpf, $name, $email, $phone)
-    {
-        $this->cpf = $cpf;
-        $this->name = $name;
-        $this->email = $email;
-        $this->phone = $phone;
-    }
+    public $timestamps = false;
+    protected $table = 'usuarios';
+    protected $primaryKey = 'cpf';
+    public $incrementing = false;
 }
