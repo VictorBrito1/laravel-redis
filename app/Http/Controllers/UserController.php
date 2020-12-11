@@ -4,16 +4,59 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Validator;
 
 class UserController extends Controller
 {
+    /** @var \Illuminate\Redis\Connections\Connection $redis */
+    private $redis;
+
+    /**
+     * UserController constructor.
+     */
+    public function __construct()
+    {
+        $this->redis = Redis::connection();
+    }
+
     /**
      * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
      */
     public function index()
     {
-        $users = User::all();
+        $keys = $this->redis->keys('user:*');
+        $users = [];
+
+        foreach ($keys as $key) {
+            $stored = $this->redis->hgetall($key);
+
+            $user = new User();
+            $user->cpf = $stored['cpf'];
+            $user->nome = $stored['nome'];
+            $user->email = $stored['email'];
+            $user->telefone = $stored['telefone'];
+            $users[] = $user;
+        }
+
+        if ($users) {
+            error_log('Usuários carregados do Redis.');
+        } else {
+            $users = User::all();
+
+            if ($users) {
+                foreach ($users as $user) {
+                    $data['cpf'] = $user->cpf;
+                    $data['nome'] = $user->nome;
+                    $data['email'] = $user->email;
+                    $data['telefone'] = $user->telefone;
+                    $this->insertOrUpdateRedisUser($data);
+                }
+
+                error_log('Usuários inseridos no Redis.');
+            }
+        }
+
         return view('user.index', ['users' => $users]);
     }
 
@@ -53,6 +96,8 @@ class UserController extends Controller
         $user->email = $data['email'];
         $user->save();
 
+        $this->insertOrUpdateRedisUser($data, 'Usuário inserido com sucesso no Redis!');
+
         return redirect()->route('users.index');
     }
 
@@ -62,7 +107,19 @@ class UserController extends Controller
      */
     public function edit($cpf)
     {
-        $user = User::find($cpf);
+        $stored = $this->redis->hgetall("user:{$cpf}");
+
+        if ($stored) {
+            $user = new User();
+            $user->cpf = $stored['cpf'];
+            $user->nome = $stored['nome'];
+            $user->email = $stored['email'];
+            $user->telefone = $stored['telefone'];
+
+            error_log("Usuário '{$stored['nome']}' recuperado do Redis!");
+        } else {
+            $user = User::find($cpf);
+        }
 
         if ($user) {
             return view('user.edit', ['user' => $user]);
@@ -108,6 +165,12 @@ class UserController extends Controller
             $user->telefone = $data['telefone'];
             $user->email = $data['email'];
             $user->save();
+
+            $stored = $this->redis->hgetall("user:{$cpf}");
+
+            if ($stored) {
+                $this->insertOrUpdateRedisUser($data, "Usuário {$cpf} encontrado e alterado no Redis!");
+            }
         }
 
         return redirect()->route('users.index');
@@ -124,8 +187,28 @@ class UserController extends Controller
 
         if ($user) {
             $user->delete();
+
+            $redisUser = $this->redis->hgetall("user:{$cpf}");
+
+            if ($redisUser) {
+                $this->redis->del("user:{$cpf}");
+                error_log("Usuário '{$cpf}' removido do Redis.");
+            }
         }
 
         return redirect()->route('users.index');
+    }
+
+    /**
+     * @param $data
+     * @param string $message
+     */
+    private function insertOrUpdateRedisUser($data, $message = '')
+    {
+        $this->redis->hmset("user:{$data['cpf']}", $data);
+
+        if ($message) {
+            error_log($message);
+        }
     }
 }

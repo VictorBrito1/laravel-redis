@@ -103,7 +103,7 @@ class PostController extends Controller
         $now = new \DateTime();
         $data['id'] = $post->id;
         $data['data_publicacao'] = $now->format('d/m/Y H:i:s');
-        $this->insertOrUpdateRedisPost($data, 'Post inserido com sucesso no REDIS!');
+        $this->insertOrUpdateRedisPost($data, 'Post inserido com sucesso no Redis!');
 
         return redirect()->route('posts.index');
     }
